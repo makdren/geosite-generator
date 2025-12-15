@@ -65,8 +65,8 @@ install_dependencies() {
         print_warning "Git не установлен. Устанавливаю..."
         
         if [ -f /etc/debian_version ]; then
-            apt-get update
-            apt-get install -y git
+            apt update
+            apt install git -y
         elif [ -f /etc/redhat-release ]; then
             yum install -y git
         elif [ -f /etc/arch-release ]; then
