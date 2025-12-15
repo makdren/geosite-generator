@@ -1,30 +1,26 @@
 #!/bin/bash
 
-# Скрипт dlcgen
-
-# Цвета для вывода
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Функция для вывода ошибки
+# Ошибка/Нет ошибки
 print_error() {
     echo -e "${RED}$1${NC}"
 }
 
-# Функция для вывода успеха
 print_success() {
     echo -e "${GREEN}$1${NC}"
 }
 
-# Функция для вывода информации
+# Информация 
 print_info() {
     echo -e "${BLUE}$1${NC}"
 }
 
-# Функция для вывода предупреждения
+# Предупреждения 
 print_warning() {
     echo -e "${YELLOW}$1${NC}"
 }
@@ -57,7 +53,7 @@ install_dependencies() {
             exit 1
         fi
         
-        # Запуск и добавление в автозагрузку
+        # Запуск docker
         systemctl start docker
         systemctl enable docker
         print_success "✓ Docker установлен и запущен"
@@ -117,7 +113,7 @@ install_dependencies
 # Путь к директории
 WORK_DIR="/root/dlcgen"
 
-# Шаг 1: Проверка и удаление старой директории
+# Проверка и удаление старой директории
 echo -e "${YELLOW}[1/4] Проверяем наличие директории $WORK_DIR...${NC}"
 if [ -d "$WORK_DIR" ]; then
     print_warning "Директория $WORK_DIR уже существует"
@@ -129,13 +125,13 @@ if [ -d "$WORK_DIR" ]; then
         rm -rf "$WORK_DIR"
         print_success "✓ Директория удалена: $WORK_DIR"
     else
-        print_info "Продолжаем с существующей директорией"
+        print_info "Продолжаем в существующей директории"
     fi
 else
     echo "✓ Директория не существует, создаём новую"
 fi
 
-# Шаг 2: Запрос ссылки на репозиторий
+# Ссылка на репозиторий
 echo -e "${YELLOW}[2/4] Запрос ссылки на репозиторий${NC}"
 echo "Пример: https://github.com/user/repository.git"
 read -p "Введите ссылку на репозиторий Git: " repo_url
@@ -146,7 +142,7 @@ if [ -z "$repo_url" ]; then
     exit 1
 fi
 
-# Шаг 3: Клонирование репозитория
+# Клонирование репозитория
 echo -e "${YELLOW}[3/4] Клонируем репозиторий...${NC}"
 print_info "Клонируем: $repo_url"
 git clone "$repo_url" "$WORK_DIR"
@@ -168,15 +164,15 @@ cd "$WORK_DIR" || {
     exit 1
 }
 
-# Шаг 4: Запуск генерации через Docker
-echo -e "${YELLOW}[4/4] Запускаем генерацию через Docker...${NC}"
+# Запуск генерации файла
+echo -e "${YELLOW}[4/4] Запускаем генерацию через Docker...(может занять до 2ух минут)${NC}"
 print_info "Текущая директория: $(pwd)"
 print_info "Используем образ: golang:1.24-alpine"
 
 docker run --rm -v "$(pwd):/app" -w /app golang:1.24-alpine go run main.go
 
 if [ $? -eq 0 ]; then
-    print_success "✓ Скрипт успешно выполнен!"
+    print_success "✓ Файл успешно создан!"
     echo -e "${GREEN}=== Обновление завершено ===${NC}"
     print_info "Результаты в директории: $WORK_DIR"
 else
