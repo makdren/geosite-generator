@@ -7,8 +7,4 @@
 ```bash
 sudo bash -c "$(wget -qO- https://raw.githubusercontent.com/makdren/geosite-generator/main/dlcgen.sh)"
 ```
-Файлы будут созданы в:
-
-```
-/root/dlcgen/
-```
+Файлы будут созданы в: /root/dlcgen/
