@@ -36,8 +36,7 @@ install_dependencies() {
         # Определение дистрибутива
         if [ -f /etc/debian_version ]; then
             # Debian/Ubuntu
-            apt-get update
-            apt-get install -y docker.io
+            sudo curl -fsSL https://get.docker.com | sh
         elif [ -f /etc/redhat-release ]; then
             # RHEL/CentOS/Fedora
             yum install -y docker
@@ -47,7 +46,7 @@ install_dependencies() {
         else
             print_error "Не удалось определить дистрибутив для установки Docker"
             echo "Установите Docker вручную:"
-            echo "- Debian/Ubuntu: sudo apt install docker.io"
+            echo "- Debian/Ubuntu: sudo curl -fsSL https://get.docker.com | sh"
             echo "- CentOS/RHEL: sudo yum install docker"
             echo "- Arch: sudo pacman -S docker"
             exit 1
