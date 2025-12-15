@@ -62,7 +62,7 @@ sudo ./dlcgen.sh
 
 Docker не установлен:
 
-· Установите вручную: sudo apt install docker.io
+· Установите вручную: sudo curl -fsSL https://get.docker.com | sh
 
 Ошибка генерации:
 
