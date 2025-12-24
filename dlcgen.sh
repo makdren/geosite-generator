@@ -9,6 +9,8 @@ NC='\033[0m' # No Color
 # Конфигурационный файл
 CONFIG_FILE="/root/dlcgen_config"
 WORK_DIR="/root/dlcgen"
+SCRIPT_NAME="dlcgen"
+INSTALL_DIR="/usr/local/bin"
 
 # Ошибка/Нет ошибки
 print_error() {
@@ -27,6 +29,168 @@ print_info() {
 # Предупреждения 
 print_warning() {
     echo -e "${YELLOW}$1${NC}"
+}
+
+# Функция установки скрипта в PATH
+install_to_path() {
+    echo -e "${YELLOW}=== УСТАНОВКА В СИСТЕМНЫЙ PATH ===${NC}"
+    
+    # Определяем путь к текущему скрипту
+    CURRENT_SCRIPT="$0"
+    SCRIPT_PATH=$(readlink -f "$CURRENT_SCRIPT")
+    
+    print_info "Установка скрипта в $INSTALL_DIR/$SCRIPT_NAME"
+    print_info "Источник: $SCRIPT_PATH"
+    
+    # Проверяем права
+    if [ ! -w "$INSTALL_DIR" ]; then
+        print_warning "Требуются права администратора для записи в $INSTALL_DIR"
+    fi
+    
+    # Копируем скрипт
+    if cp "$SCRIPT_PATH" "$INSTALL_DIR/$SCRIPT_NAME"; then
+        # Делаем исполняемым
+        chmod +x "$INSTALL_DIR/$SCRIPT_NAME"
+        print_success "✓ Скрипт скопирован в $INSTALL_DIR/$SCRIPT_NAME"
+    else
+        # Пробуем с sudo
+        print_warning "Пробуем с использованием sudo..."
+        if sudo cp "$SCRIPT_PATH" "$INSTALL_DIR/$SCRIPT_NAME"; then
+            sudo chmod +x "$INSTALL_DIR/$SCRIPT_NAME"
+            print_success "✓ Скрипт установлен с использованием sudo"
+        else
+            print_error "✗ Не удалось установить скрипт в системный PATH"
+            return 1
+        fi
+    fi
+    
+    # Проверяем, добавлен ли PATH
+    if ! command -v "$SCRIPT_NAME" &> /dev/null; then
+        print_warning "Скрипт установлен, но может не быть в PATH"
+        print_info "Вы можете запускать его как: $INSTALL_DIR/$SCRIPT_NAME"
+    else
+        print_success "✓ Установка завершена! Теперь можно использовать команду: $SCRIPT_NAME"
+    fi
+    
+    # Добавляем информацию в конфиг
+    echo "INSTALLED_PATH=$INSTALL_DIR/$SCRIPT_NAME" >> "$CONFIG_FILE"
+    echo "INSTALL_DATE=$(date)" >> "$CONFIG_FILE"
+    
+    return 0
+}
+
+# Функция удаления из PATH
+uninstall_from_path() {
+    echo -e "${YELLOW}=== УДАЛЕНИЕ ИЗ СИСТЕМНОГО PATH ===${NC}"
+    
+    # Проверяем, установлен ли скрипт
+    if [ -f "$INSTALL_DIR/$SCRIPT_NAME" ]; then
+        print_info "Найден установленный скрипт: $INSTALL_DIR/$SCRIPT_NAME"
+        
+        read -p "Удалить скрипт из системного PATH? (y/N): " -n 1 -r
+        echo
+        
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            if rm -f "$INSTALL_DIR/$SCRIPT_NAME"; then
+                print_success "✓ Скрипт удален из $INSTALL_DIR"
+            else
+                print_warning "Пробуем удалить с использованием sudo..."
+                sudo rm -f "$INSTALL_DIR/$SCRIPT_NAME"
+                print_success "✓ Скрипт удален"
+            fi
+        else
+            print_info "Удаление отменено"
+        fi
+    else
+        print_info "Скрипт не найден в системном PATH"
+    fi
+}
+
+# Функция самоочистки
+self_cleanup() {
+    echo -e "${YELLOW}=== САМООЧИСТКА СКРИПТА ===${NC}"
+    echo ""
+    
+    print_warning "ВНИМАНИЕ: Эта операция удалит:"
+    echo "  1. Сам скрипт dlcgen.sh"
+    echo "  2. Рабочую директорию: $WORK_DIR"
+    echo "  3. Конфигурационный файл: $CONFIG_FILE"
+    echo "  4. Установленную команду dlcgen (если есть)"
+    echo "  5. Все сгенерированные файлы"
+    echo ""
+    
+    read -p "Вы уверены, что хотите удалить скрипт и все связанные файлы? (y/N): " -n 1 -r
+    echo
+    
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        print_info "Отмена операции самоочистки"
+        return 0
+    fi
+    
+    echo -e "${YELLOW}Начинаем удаление...${NC}"
+    
+    # 1. Удаление из системного PATH
+    uninstall_from_path
+    
+    # 2. Удаление рабочей директории
+    if [ -d "$WORK_DIR" ]; then
+        echo -n "Удаляем рабочую директорию $WORK_DIR... "
+        rm -rf "$WORK_DIR"
+        print_success "✓ Удалено"
+    else
+        echo "✓ Рабочая директория не существует"
+    fi
+    
+    # 3. Удаление конфигурационного файла
+    if [ -f "$CONFIG_FILE" ]; then
+        echo -n "Удаляем конфигурационный файл $CONFIG_FILE... "
+        rm -f "$CONFIG_FILE"
+        print_success "✓ Удалено"
+    else
+        echo "✓ Конфигурационный файл не существует"
+    fi
+    
+    # 4. Поиск и удаление всех dlc.dat файлов в системе
+    echo -n "Ищем и удаляем файлы dlc.dat... "
+    find / -name "dlc.dat" -type f 2>/dev/null | while read -r file; do
+        rm -f "$file"
+    done
+    print_success "✓ Удалено"
+    
+    # 5. Удаление временных файлов Docker 
+    echo -n "Очищаем временные файлы... "
+    rm -rf /tmp/dlcgen_* 2>/dev/null
+    print_success "✓ Удалено"
+    
+    # 6. путь к текущему скрипту
+    CURRENT_SCRIPT="$0"
+    SCRIPT_NAME_FULL=$(basename "$CURRENT_SCRIPT")
+    SCRIPT_DIR=$(dirname "$CURRENT_SCRIPT")
+    
+    # 7. Проверяем, где находится скрипт
+    echo "Текущий скрипт: $CURRENT_SCRIPT"
+    
+    # 8. удаления основного скрипта
+    CLEANUP_SCRIPT="/tmp/cleanup_$$.sh"
+    
+    cat > "$CLEANUP_SCRIPT" << EOF
+#!/bin/bash
+echo "Удаляем основной скрипт..."
+rm -f "$CURRENT_SCRIPT"
+echo "✓ Основной скрипт удален"
+echo ""
+echo "Очистка завершена успешно!"
+echo "Все файлы скрипта dlcgen удалены из системы."
+rm -f "\$0"  # Удаляем сам cleanup-скрипт
+EOF
+    
+    chmod +x "$CLEANUP_SCRIPT"
+    
+    # 9. Запускаем cleanup-скрипт
+    echo -e "${YELLOW}Завершаем очистку...${NC}"
+    exec "$CLEANUP_SCRIPT"
+    
+    exit 0
 }
 
 # Сохранение конфигурации
@@ -107,7 +271,7 @@ install_dependencies() {
         echo "✓ Git уже установлен"
     fi
     
-    # Проверка Golang (альтернативный вариант, если не использовать Docker)
+    # Проверка Golang 
     if ! command -v go &> /dev/null; then
         print_warning "Golang не установлен. Устанавливаю..."
         
@@ -146,7 +310,7 @@ recreate_dlc() {
         return 1
     }
     
-    # Обновление репозитория (если это git репозиторий)
+    # Обновление репозитория 
     if [ -d ".git" ]; then
         print_info "Обновляем репозиторий..."
         git pull
@@ -243,6 +407,63 @@ full_installation() {
 # Главное меню
 echo -e "${GREEN}=== Запуск dlcgen ===${NC}"
 
+# Проверяем, установлен ли скрипт в PATH
+if ! command -v dlcgen &> /dev/null; then
+    echo ""
+    print_warning "Скрипт не установлен в системный PATH"
+    print_info "Вы можете установить его для удобного использования командой 'dlcgen'"
+    read -p "Установить в системный PATH? (Y/n): " -n 1 -r
+    echo
+    
+    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+        install_to_path
+        
+        # Проверяем, установился ли
+        if command -v dlcgen &> /dev/null; then
+            print_success "✓ Установка завершена! Теперь можно использовать команду 'dlcgen'"
+            echo ""
+            read -p "Запустить установленную версию? (Y/n): " -n 1 -r
+            echo
+            
+            if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+                # Запускаем установленную версию
+                exec dlcgen "$@"
+                exit 0
+            fi
+        fi
+    fi
+else
+    print_info "Скрипт уже установлен в PATH, можно использовать команду 'dlcgen'"
+fi
+
+# Выбор действия
+echo ""
+print_info "Выберите действие:"
+echo "  1) Начать работу со скриптом"
+echo "  2) Установить/переустановить в системный PATH"
+echo "  3) Удалить скрипт и все файлы (самоочистка)"
+echo "  4) Выйти"
+
+read -p "Ваш выбор (1-4): " main_choice
+
+case $main_choice in
+    2)
+        install_to_path
+        exit 0
+        ;;
+    3)
+        self_cleanup
+        exit 0
+        ;;
+    4)
+        print_info "Выход..."
+        exit 0
+        ;;
+    *)
+        # Продолжаем обычную работу
+        ;;
+esac
+
 # Проверяем, есть ли сохраненная конфигурация
 if load_config; then
     print_info "Найдена сохраненная конфигурация:"
@@ -255,7 +476,7 @@ if load_config; then
     echo "  1) Пересоздать файл dlc.dat (использовать сохраненную ссылку)"
     echo "  2) Пересоздать файл dlc.dat (ввести новую ссылку)"
     echo "  3) Полная переустановка (удалить всё и начать заново)"
-    echo "  4) Выйти"
+    echo "  4) Вернуться в главное меню"
     
     read -p "Ваш выбор (1-4): " choice
     
@@ -285,8 +506,8 @@ if load_config; then
             full_installation "$new_repo_url"
             ;;
         4)
-            print_info "Выход..."
-            exit 0
+            # Возвращаемся к началу скрипта
+            exec "$0"
             ;;
         *)
             print_error "Неверный выбор"
