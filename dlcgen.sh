@@ -11,6 +11,7 @@ CONFIG_FILE="/root/dlcgen_config"
 WORK_DIR="/root/dlcgen"
 SCRIPT_NAME="dlcgen"
 INSTALL_DIR="/usr/local/bin"
+SCRIPT_URL="https://raw.githubusercontent.com/makdren/geosite-generator/main/dlcgen.sh"
 
 # Ошибка/Нет ошибки
 print_error() {
@@ -31,52 +32,83 @@ print_warning() {
     echo -e "${YELLOW}$1${NC}"
 }
 
-# Функция установки скрипта в PATH
-install_to_path() {
+# Функция простой установки в PATH (работает при любом способе запуска)
+install_to_path_simple() {
     echo -e "${YELLOW}=== УСТАНОВКА В СИСТЕМНЫЙ PATH ===${NC}"
     
-    # Определяем путь к текущему скрипту
-    CURRENT_SCRIPT="$0"
-    SCRIPT_PATH=$(readlink -f "$CURRENT_SCRIPT")
+    print_info "Скачиваю скрипт в $INSTALL_DIR/$SCRIPT_NAME..."
     
-    print_info "Установка скрипта в $INSTALL_DIR/$SCRIPT_NAME"
-    print_info "Источник: $SCRIPT_PATH"
-    
-    # Проверяем права
-    if [ ! -w "$INSTALL_DIR" ]; then
-        print_warning "Требуются права администратора для записи в $INSTALL_DIR"
-    fi
-    
-    # Копируем скрипт
-    if cp "$SCRIPT_PATH" "$INSTALL_DIR/$SCRIPT_NAME"; then
-        # Делаем исполняемым
-        chmod +x "$INSTALL_DIR/$SCRIPT_NAME"
-        print_success "✓ Скрипт скопирован в $INSTALL_DIR/$SCRIPT_NAME"
+    # Пробуем скачать напрямую
+    if wget -qO "$INSTALL_DIR/$SCRIPT_NAME" "$SCRIPT_URL" 2>/dev/null; then
+        print_success "✓ Скрипт скачан через wget"
+    elif curl -s -o "$INSTALL_DIR/$SCRIPT_NAME" "$SCRIPT_URL"; then
+        print_success "✓ Скрипт скачан через curl"
     else
         # Пробуем с sudo
-        print_warning "Пробуем с использованием sudo..."
-        if sudo cp "$SCRIPT_PATH" "$INSTALL_DIR/$SCRIPT_NAME"; then
-            sudo chmod +x "$INSTALL_DIR/$SCRIPT_NAME"
-            print_success "✓ Скрипт установлен с использованием sudo"
+        print_warning "Пробую с sudo..."
+        if sudo wget -qO "$INSTALL_DIR/$SCRIPT_NAME" "$SCRIPT_URL" 2>/dev/null; then
+            print_success "✓ Скрипт скачан через sudo wget"
+        elif sudo curl -s -o "$INSTALL_DIR/$SCRIPT_NAME" "$SCRIPT_URL"; then
+            print_success "✓ Скрипт скачан через sudo curl"
         else
-            print_error "✗ Не удалось установить скрипт в системный PATH"
+            print_error "✗ Не удалось скачать скрипт"
             return 1
         fi
     fi
     
-    # Проверяем, добавлен ли PATH
-    if ! command -v "$SCRIPT_NAME" &> /dev/null; then
-        print_warning "Скрипт установлен, но может не быть в PATH"
-        print_info "Вы можете запускать его как: $INSTALL_DIR/$SCRIPT_NAME"
+    # Устанавливаем права
+    if chmod +x "$INSTALL_DIR/$SCRIPT_NAME" 2>/dev/null; then
+        print_success "✓ Права установлены"
+    elif sudo chmod +x "$INSTALL_DIR/$SCRIPT_NAME" 2>/dev/null; then
+        print_success "✓ Права установлены через sudo"
     else
-        print_success "✓ Установка завершена! Теперь можно использовать команду: $SCRIPT_NAME"
+        print_error "✗ Не удалось установить права"
+        return 1
     fi
     
-    # Добавляем информацию в конфиг
-    echo "INSTALLED_PATH=$INSTALL_DIR/$SCRIPT_NAME" >> "$CONFIG_FILE"
-    echo "INSTALL_DATE=$(date)" >> "$CONFIG_FILE"
-    
-    return 0
+    # Проверяем установку
+    if [ -x "$INSTALL_DIR/$SCRIPT_NAME" ]; then
+        print_success "✓ Установка завершена!"
+        print_info "Теперь используйте команду: $SCRIPT_NAME"
+        
+        # Сохраняем информацию об установке
+        if [ -f "$CONFIG_FILE" ]; then
+            echo "INSTALLED_PATH=$INSTALL_DIR/$SCRIPT_NAME" >> "$CONFIG_FILE"
+            echo "INSTALL_DATE=$(date)" >> "$CONFIG_FILE"
+        fi
+        
+        return 0
+    else
+        print_error "✗ Скрипт не установлен корректно"
+        return 1
+    fi
+}
+
+# Функция проверки и предложения установки
+check_and_offer_install() {
+    if ! command -v "$SCRIPT_NAME" &> /dev/null; then
+        echo ""
+        print_warning "Скрипт не установлен в системный PATH"
+        print_info "Вы можете установить его для удобного использования командой '$SCRIPT_NAME'"
+        read -p "Установить в системный PATH? (Y/n): " -n 1 -r
+        echo
+        
+        if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+            if install_to_path_simple; then
+                # После установки спрашиваем, запустить ли установленную версию
+                echo ""
+                read -p "Запустить установленную версию? (Y/n): " -n 1 -r
+                echo
+                if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+                    # Запускаем установленную версию
+                    exec dlcgen "$@"
+                    exit 0
+                fi
+            fi
+        fi
+    else
+        print_info "✓ Команда '$SCRIPT_NAME' уже доступна в системе"
+    fi
 }
 
 # Функция удаления из PATH
@@ -91,12 +123,14 @@ uninstall_from_path() {
         echo
         
         if [[ $REPLY =~ ^[Yy]$ ]]; then
-            if rm -f "$INSTALL_DIR/$SCRIPT_NAME"; then
+            if rm -f "$INSTALL_DIR/$SCRIPT_NAME" 2>/dev/null; then
                 print_success "✓ Скрипт удален из $INSTALL_DIR"
             else
-                print_warning "Пробуем удалить с использованием sudo..."
-                sudo rm -f "$INSTALL_DIR/$SCRIPT_NAME"
-                print_success "✓ Скрипт удален"
+                if sudo rm -f "$INSTALL_DIR/$SCRIPT_NAME" 2>/dev/null; then
+                    print_success "✓ Скрипт удален с использованием sudo"
+                else
+                    print_error "✗ Не удалось удалить скрипт"
+                fi
             fi
         else
             print_info "Удаление отменено"
@@ -106,17 +140,54 @@ uninstall_from_path() {
     fi
 }
 
-# Функция самоочистки
+# Функция быстрого поиска и удаления dlc.dat файлов
+find_and_remove_dlc_files() {
+    echo -n "Ищем и удаляем файлы dlc.dat... "
+    
+    # Ищем только в вероятных местах (быстрее)
+    local likely_dirs=(
+        "/root"
+        "/home"
+        "/tmp"
+        "/var"
+        "/opt"
+        "$WORK_DIR"
+    )
+    
+    local found_files=()
+    
+    # Ищем файлы в вероятных директориях
+    for dir in "${likely_dirs[@]}"; do
+        if [ -d "$dir" ]; then
+            while IFS= read -r -d $'\0' file; do
+                found_files+=("$file")
+            done < <(find "$dir" -name "dlc.dat" -type f 2>/dev/null | head -20)
+        fi
+    done
+    
+    # Удаляем найденные файлы
+    for file in "${found_files[@]}"; do
+        rm -f "$file" 2>/dev/null
+    done
+    
+    # Также ищем в рабочей директории (глубокий поиск, но только в одной директории)
+    if [ -d "$WORK_DIR" ]; then
+        find "$WORK_DIR" -name "*.dat" -type f -delete 2>/dev/null
+    fi
+    
+    print_success "✓ Удалено (найдено: ${#found_files[@]})"
+}
+
+# Функция самоочистки (удаление скрипта и всех связанных файлов)
 self_cleanup() {
     echo -e "${YELLOW}=== САМООЧИСТКА СКРИПТА ===${NC}"
     echo ""
     
     print_warning "ВНИМАНИЕ: Эта операция удалит:"
-    echo "  1. Сам скрипт dlcgen.sh"
+    echo "  1. Команду dlcgen (если установлена)"
     echo "  2. Рабочую директорию: $WORK_DIR"
     echo "  3. Конфигурационный файл: $CONFIG_FILE"
-    echo "  4. Установленную команду dlcgen (если есть)"
-    echo "  5. Все сгенерированные файлы"
+    echo "  4. Все сгенерированные файлы"
     echo ""
     
     read -p "Вы уверены, что хотите удалить скрипт и все связанные файлы? (y/N): " -n 1 -r
@@ -150,45 +221,31 @@ self_cleanup() {
         echo "✓ Конфигурационный файл не существует"
     fi
     
-    # 4. Поиск и удаление всех dlc.dat файлов в системе
-    echo -n "Ищем и удаляем файлы dlc.dat... "
-    find / -name "dlc.dat" -type f 2>/dev/null | while read -r file; do
-        rm -f "$file"
-    done
-    print_success "✓ Удалено"
+    # 4. Поиск и удаление файлов dlc.dat (ускоренная версия)
+    find_and_remove_dlc_files
     
-    # 5. Удаление временных файлов Docker 
+    # 5. Удаление временных файлов Docker (если создавались)
     echo -n "Очищаем временные файлы... "
     rm -rf /tmp/dlcgen_* 2>/dev/null
     print_success "✓ Удалено"
     
-    # 6. путь к текущему скрипту
-    CURRENT_SCRIPT="$0"
-    SCRIPT_NAME_FULL=$(basename "$CURRENT_SCRIPT")
-    SCRIPT_DIR=$(dirname "$CURRENT_SCRIPT")
+    echo ""
+    print_success "✓ Очистка завершена успешно!"
+    print_info "Все файлы скрипта dlcgen удалены из системы."
     
-    # 7. Проверяем, где находится скрипт
-    echo "Текущий скрипт: $CURRENT_SCRIPT"
+    # Если скрипт был запущен через curl/wget, просто выходим
+    if [ "$0" = "bash" ]; then
+        print_info "Скрипт был запущен через 'bash -c', файл не сохранен на диске."
+        exit 0
+    fi
     
-    # 8. удаления основного скрипта
-    CLEANUP_SCRIPT="/tmp/cleanup_$$.sh"
-    
-    cat > "$CLEANUP_SCRIPT" << EOF
-#!/bin/bash
-echo "Удаляем основной скрипт..."
-rm -f "$CURRENT_SCRIPT"
-echo "✓ Основной скрипт удален"
-echo ""
-echo "Очистка завершена успешно!"
-echo "Все файлы скрипта dlcgen удалены из системы."
-rm -f "\$0"  # Удаляем сам cleanup-скрипт
-EOF
-    
-    chmod +x "$CLEANUP_SCRIPT"
-    
-    # 9. Запускаем cleanup-скрипт
-    echo -e "${YELLOW}Завершаем очистку...${NC}"
-    exec "$CLEANUP_SCRIPT"
+    # Если скрипт сохранен в файле, удаляем его
+    if [ -f "$0" ]; then
+        SCRIPT_FILE="$0"
+        echo -n "Удаляю файл скрипта $SCRIPT_FILE... "
+        rm -f "$SCRIPT_FILE"
+        print_success "✓ Удалено"
+    fi
     
     exit 0
 }
@@ -271,7 +328,7 @@ install_dependencies() {
         echo "✓ Git уже установлен"
     fi
     
-    # Проверка Golang 
+    # Проверка Golang (альтернативный вариант, если не использовать Docker)
     if ! command -v go &> /dev/null; then
         print_warning "Golang не установлен. Устанавливаю..."
         
@@ -310,7 +367,7 @@ recreate_dlc() {
         return 1
     }
     
-    # Обновление репозитория 
+    # Обновление репозитория (если это git репозиторий)
     if [ -d ".git" ]; then
         print_info "Обновляем репозиторий..."
         git pull
@@ -408,35 +465,13 @@ full_installation() {
 echo -e "${GREEN}=== Запуск dlcgen ===${NC}"
 
 # Проверяем, установлен ли скрипт в PATH
-if ! command -v dlcgen &> /dev/null; then
+if command -v dlcgen &> /dev/null; then
+    print_info "✓ Скрипт уже установлен в PATH. Используйте команду: dlcgen"
+    print_info "Для переустановки удалите текущую версию: sudo rm /usr/local/bin/dlcgen"
     echo ""
-    print_warning "Скрипт не установлен в системный PATH"
-    print_info "Вы можете установить его для удобного использования командой 'dlcgen'"
-    read -p "Установить в системный PATH? (Y/n): " -n 1 -r
-    echo
-    
-    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-        install_to_path
-        
-        # Проверяем, установился ли
-        if command -v dlcgen &> /dev/null; then
-            print_success "✓ Установка завершена! Теперь можно использовать команду 'dlcgen'"
-            echo ""
-            read -p "Запустить установленную версию? (Y/n): " -n 1 -r
-            echo
-            
-            if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-                # Запускаем установленную версию
-                exec dlcgen "$@"
-                exit 0
-            fi
-        fi
-    fi
-else
-    print_info "Скрипт уже установлен в PATH, можно использовать команду 'dlcgen'"
 fi
 
-# Выбор действия
+# Главное меню действий
 echo ""
 print_info "Выберите действие:"
 echo "  1) Начать работу со скриптом"
@@ -448,7 +483,7 @@ read -p "Ваш выбор (1-4): " main_choice
 
 case $main_choice in
     2)
-        install_to_path
+        install_to_path_simple
         exit 0
         ;;
     3)
@@ -507,7 +542,7 @@ if load_config; then
             ;;
         4)
             # Возвращаемся к началу скрипта
-            exec "$0"
+            exec bash -c "$(wget -qO- https://raw.githubusercontent.com/makdren/geosite-generator/main/dlcgen.sh)"
             ;;
         *)
             print_error "Неверный выбор"
