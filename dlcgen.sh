@@ -383,7 +383,33 @@ recreate_dlc() {
     print_info "Текущая директория: $(pwd)"
     print_info "Используем образ: golang:1.24-alpine"
     
-    docker run --rm -v "$(pwd):/app" -w /app golang:1.24-alpine go run main.go
+    print_info "Скачиваем зависимости (с кешированием)..."
+
+docker run --rm \
+  -e GOPROXY=direct \
+  -e GOSUMDB=off \
+  -v dlcgen-gomod-cache:/go/pkg/mod \
+  -v "$(pwd):/app" \
+  -w /app \
+  golang:1.24-alpine \
+  go mod download
+
+if [ $? -ne 0 ]; then
+    print_error "✗ Ошибка при загрузке зависимостей"
+    return 1
+fi
+
+print_info "Запускаем генерацию через Docker..."
+
+docker run --rm \
+  -e GOPROXY=direct \
+  -e GOSUMDB=off \
+  -v dlcgen-gomod-cache:/go/pkg/mod \
+  -v "$(pwd):/app" \
+  -w /app \
+  golang:1.24-alpine \
+  go run main.go
+
     
     if [ $? -eq 0 ]; then
         print_success "✓ Файл dlc.dat успешно пересоздан!"
@@ -445,7 +471,33 @@ full_installation() {
     print_info "Текущая директория: $(pwd)"
     print_info "Используем образ: golang:1.24-alpine"
     
-    docker run --rm -v "$(pwd):/app" -w /app golang:1.24-alpine go run main.go
+   print_info "Скачиваем зависимости (с кешированием)..."
+
+docker run --rm \
+  -e GOPROXY=direct \
+  -e GOSUMDB=off \
+  -v dlcgen-gomod-cache:/go/pkg/mod \
+  -v "$(pwd):/app" \
+  -w /app \
+  golang:1.24-alpine \
+  go mod download
+
+if [ $? -ne 0 ]; then
+    print_error "✗ Ошибка при загрузке зависимостей"
+    exit 1
+fi
+
+print_info "Запускаем генерацию через Docker..."
+
+docker run --rm \
+  -e GOPROXY=direct \
+  -e GOSUMDB=off \
+  -v dlcgen-gomod-cache:/go/pkg/mod \
+  -v "$(pwd):/app" \
+  -w /app \
+  golang:1.24-alpine \
+  go run main.go
+
     
     if [ $? -eq 0 ]; then
         print_success "✓ Файл успешно создан!"
