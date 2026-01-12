@@ -227,6 +227,7 @@ self_cleanup() {
     # 5. Удаление временных файлов Docker (если создавались)
     echo -n "Очищаем временные файлы... "
     rm -rf /tmp/dlcgen_* 2>/dev/null
+    docker volume rm dlcgen-gomod-cache 2>/dev/null
     print_success "✓ Удалено"
     
     echo ""
