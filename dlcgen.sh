@@ -392,7 +392,7 @@ docker run --rm \
   -v "$(pwd):/app" \
   -w /app \
   golang:1.24-alpine \
-  go mod download
+  sh -c "apk add --no-cache git >/dev/null && go mod download"
 
 if [ $? -ne 0 ]; then
     print_error "✗ Ошибка при загрузке зависимостей"
@@ -408,7 +408,8 @@ docker run --rm \
   -v "$(pwd):/app" \
   -w /app \
   golang:1.24-alpine \
-  go run main.go
+  sh -c "apk add --no-cache git >/dev/null && go run main.go"
+
 
     
     if [ $? -eq 0 ]; then
@@ -480,11 +481,11 @@ docker run --rm \
   -v "$(pwd):/app" \
   -w /app \
   golang:1.24-alpine \
-  go mod download
+  sh -c "apk add --no-cache git >/dev/null && go mod download"
 
 if [ $? -ne 0 ]; then
     print_error "✗ Ошибка при загрузке зависимостей"
-    exit 1
+    return 1
 fi
 
 print_info "Запускаем генерацию через Docker..."
@@ -496,7 +497,8 @@ docker run --rm \
   -v "$(pwd):/app" \
   -w /app \
   golang:1.24-alpine \
-  go run main.go
+  sh -c "apk add --no-cache git >/dev/null && go run main.go"
+
 
     
     if [ $? -eq 0 ]; then
