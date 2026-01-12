@@ -408,27 +408,6 @@ recreate_dlc() {
     fi
 }
     
-    # Запуск генерации файла
-    print_info "Запускаем генерацию через Docker...(может занять до двух минут)"
-    print_info "Текущая директория: $(pwd)"
-    print_info "Используем образ: golang:1.24-alpine"
-    
-    docker run --rm -v "$(pwd):/app" -w /app golang:1.24-alpine go run main.go
-    
-    if [ $? -eq 0 ]; then
-        print_success "✓ Файл dlc.dat успешно пересоздан!"
-        print_info "Результаты в директории: $WORK_DIR"
-        return 0
-    else
-        print_error "✗ Ошибка при выполнении"
-        print_info "Возможные причины:"
-        echo "  1. В репозитории нет файла main.go"
-        echo "  2. Ошибка в коде main.go"
-        echo "  3. Проблемы с Docker"
-        return 1
-    fi
-}
-
 # Функция полной установки
 full_installation() {
     local repo_url="$1"
