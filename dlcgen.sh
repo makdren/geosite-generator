@@ -391,12 +391,12 @@ docker run --rm \
   -v dlcgen-gomod-cache:/go/pkg/mod \
   -v "$(pwd):/app" \
   -w /app \
-  golang:1.24-alpine \
-  sh -c "apk add --no-cache git >/dev/null && go mod download"
+  golang:1.24 \
+  go mod download
 
 if [ $? -ne 0 ]; then
     print_error "✗ Ошибка при загрузке зависимостей"
-    return 1
+    return 1   # в full_installation -> exit 1
 fi
 
 print_info "Запускаем генерацию через Docker..."
@@ -407,8 +407,8 @@ docker run --rm \
   -v dlcgen-gomod-cache:/go/pkg/mod \
   -v "$(pwd):/app" \
   -w /app \
-  golang:1.24-alpine \
-  sh -c "apk add --no-cache git >/dev/null && go run main.go"
+  golang:1.24 \
+  go run main.go
 
 
     
@@ -472,7 +472,7 @@ full_installation() {
     print_info "Текущая директория: $(pwd)"
     print_info "Используем образ: golang:1.24-alpine"
     
-   print_info "Скачиваем зависимости (с кешированием)..."
+   pprint_info "Скачиваем зависимости (с кешированием)..."
 
 docker run --rm \
   -e GOPROXY=direct \
@@ -480,12 +480,12 @@ docker run --rm \
   -v dlcgen-gomod-cache:/go/pkg/mod \
   -v "$(pwd):/app" \
   -w /app \
-  golang:1.24-alpine \
-  sh -c "apk add --no-cache git >/dev/null && go mod download"
+  golang:1.24 \
+  go mod download
 
 if [ $? -ne 0 ]; then
     print_error "✗ Ошибка при загрузке зависимостей"
-    return 1
+    return 1   # в full_installation -> exit 1
 fi
 
 print_info "Запускаем генерацию через Docker..."
@@ -496,8 +496,9 @@ docker run --rm \
   -v dlcgen-gomod-cache:/go/pkg/mod \
   -v "$(pwd):/app" \
   -w /app \
-  golang:1.24-alpine \
-  sh -c "apk add --no-cache git >/dev/null && go run main.go"
+  golang:1.24 \
+  go run main.go
+
 
 
     
