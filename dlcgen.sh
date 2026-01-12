@@ -363,7 +363,7 @@ recreate_dlc() {
     
     # Переход в директорию
     cd "$WORK_DIR" || {
-        print_error "Не удалось перейти в директории $WORK_DIR"
+        print_error "Не удалось перейти в директорию $WORK_DIR"
         return 1
     }
     
@@ -378,21 +378,12 @@ recreate_dlc() {
         fi
     fi
     
-    # Проверка доступности Go proxy
-    check_go_proxy
-    
     # Запуск генерации файла
     print_info "Запускаем генерацию через Docker...(может занять до двух минут)"
     print_info "Текущая директория: $(pwd)"
     print_info "Используем образ: golang:1.24-alpine"
-    print_info "GOPROXY: $GOPROXY"
     
-    docker run --rm \
-      -e GOPROXY="$GOPROXY" \
-      -v "$(pwd):/app" \
-      -w /app \
-      golang:1.24-alpine \
-      go run main.go
+    docker run --rm -v "$(pwd):/app" -w /app golang:1.24-alpine go run main.go
     
     if [ $? -eq 0 ]; then
         print_success "✓ Файл dlc.dat успешно пересоздан!"
@@ -407,7 +398,7 @@ recreate_dlc() {
         return 1
     fi
 }
-    
+
 # Функция полной установки
 full_installation() {
     local repo_url="$1"
