@@ -451,7 +451,7 @@ full_installation() {
     fi
 }
 # Главное меню
-echo -e "${GREEN}=== Запуск dlcgen v0.3 ===${NC}"
+echo -e "${GREEN}=== Запуск dlcgen v0.4 ===${NC}"
 # Проверяем, установлен ли скрипт в PATH
 if command -v dlcgen &> /dev/null; then
     print_info "✓ Скрипт уже установлен в PATH. Используйте команду: dlcgen"
